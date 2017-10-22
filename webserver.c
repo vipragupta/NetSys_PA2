@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 
 
@@ -87,6 +89,20 @@ void getRootDirectory(char *root) {
   }
   fclose(file);
 }
+
+void getUrl(char *url, char *request) {
+  int i = 0;
+
+  char *tok = strtok(request, " ");
+  if (tok != NULL) {
+    char *temp = strtok(NULL, " ");
+    printf("tok URL:%s\n", tok);
+    printf("temp URL:%s\n", temp);
+    strcpy(url, temp);
+    url[strlen(temp)] = '\0';
+  }
+}
+
 
 void getDefaultFileName(char *address) {
   FILE *file;
@@ -194,11 +210,21 @@ int isValidFileType(char *requestUrl, char *types) {
   char *typePresent = strstr(types, fileType);
   
   if (typePresent != NULL) {
-    printf("RETURN 1 fileType:%s    typePresent:\n", fileType, typePresent);
+    printf("RETURN 1 fileType:%s    typePresent: %s\n", fileType, typePresent);
     return 1;
   } else {
-    printf("RETURN 0 fileType:%s    typePresent:\n", fileType, typePresent);
+    printf("RETURN 0 fileType:%s    typePresent: %s\n", fileType, typePresent);
     return 0;
+  }
+}
+
+int isImageTypeFile(char *requestUrl) {
+  printf("requestUrl: %s\n", requestUrl);
+  char *fileType = strrchr(requestUrl, '.');
+  if (fileType != NULL && ((strcmp(fileType, ".txt") == 0) || (strcmp(fileType, ".html") == 0) || (strcmp(fileType, ".htm") == 0))) {
+    return 0;
+  } else {
+    return 1;
   }
 }
 
@@ -211,9 +237,9 @@ int main (int argc, char **argv)
   socklen_t clientLength;
   char request[MAXLINE];
   struct sockaddr_in clientSocket, serverSocket; 
-  char rootAddress[150];
+  char rootAddress[200];
   char defaultFileName[10];
-  char fileType[100];
+  char fileType[150];
   
   int port = getPortNumber();
   getDefaultFileName(defaultFileName);  
@@ -266,8 +292,9 @@ int main (int argc, char **argv)
         puts(request);
         char *httpRequest;
         char requestMethod[10];
-        char requestUrl[30];
+        char requestUrl[70];
         char requestVersion[10];
+        char urlByToken[70];
 
         httpRequest = strtok(request, "\n");
         //printf("%s\n", httpRequest);
@@ -282,9 +309,10 @@ int main (int argc, char **argv)
               bzero(requestMethod, sizeof(requestMethod));
               strcpy(requestMethod, temp);
             } else if (arg == 1) {
-              printf("temp:%s\n", temp);
+              printf("temp:%s    len:%lu\n", temp, strlen(temp));
               bzero(requestUrl, sizeof(requestUrl));
               strcpy(requestUrl, temp);
+              requestUrl[strlen(temp)] = '\0';
             }
             bzero(temp, sizeof(temp));
             j = 0;
@@ -299,64 +327,127 @@ int main (int argc, char **argv)
         memset(requestVersion, '\0', sizeof(requestVersion));
         strcpy(requestVersion, temp);
 
+        getUrl(urlByToken, httpRequest);
+
         char responseBuffer[1048576];
         int responseIndex = 0;
         char fileBuffer[1048576];
 
         if (strcmp(requestMethod, "GET") == 0) {
+          int isSendImage = 0;
           FILE *file;
           char filename[50];
           memset(filename, '\0', sizeof(filename));
 
           int isFile = isGetFile(requestUrl);
           printf("requestUrl:%s\n", requestUrl);
-          printf("ISFILE::::%d\n", isFile);
+          printf("Url:%s\n", urlByToken);
+          printf("\nISFILE::::%d\n", isFile);
           if (isFile == 1) {
            
             int validFileType = isValidFileType(requestUrl, fileType);
             printf("ISVALIDFILETYPE::::%d\n", validFileType);
             if (validFileType == 1) {
-              printf("rootAddress::::%sss\n", rootAddress);
-              strcpy(filename, rootAddress);
-              strcat(filename, requestUrl);
-              printf("FILENAME:::%s\n", filename);
-              file = getFilePointer(filename);
+              int isImageType = isImageTypeFile(requestUrl);
+              printf("ISIMAGETYPE::::%d\n", isImageType);
+                if (isImageType == 0) {
+                  printf("rootAddress::::%sss\n", rootAddress);
+                  strcpy(filename, rootAddress);
+                  strcat(filename, requestUrl);
+                  printf("FILENAME:::%s\n", filename);
+                  file = getFilePointer(filename);
 
-              if(file == NULL)
-              {
-                 printf("file does not exist\n");
-                 bzero(responseBuffer, sizeof(responseBuffer));
-                 getFourOFourResponse(responseBuffer, requestUrl);
-              } else {
-                bzero(responseBuffer, sizeof(responseBuffer));
-                strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
-                strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
-                strcat(responseBuffer,"Content-Length:");
-                size_t file_size = getFileSize(file);     //Tells the file size in bytes.
-                fseek(file, 0, SEEK_SET);
-                int byte_read = fread(fileBuffer, 1, file_size, file);
-                
-                if(byte_read <= 0)
-                {
-                  printf("unable to copy file into buffer\n");
-                  bzero(responseBuffer, sizeof(responseBuffer));
-                  getFiveHundreadResponse(responseBuffer, requestUrl);
-                  continue;
+                  if(file == NULL)
+                  {
+                     printf("file does not exist\n");
+                     bzero(responseBuffer, sizeof(responseBuffer));
+                     getFourOFourResponse(responseBuffer, requestUrl);
+                     printf("\nResponse:\n%s\n\n", responseBuffer);
+                     send(connfd, responseBuffer, sizeof(responseBuffer), 0);                     
+                  } else {
+                    bzero(responseBuffer, sizeof(responseBuffer));
+                    strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+                    strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
+                    strcat(responseBuffer,"Content-Length:");
+                    size_t file_size = getFileSize(file);     //Tells the file size in bytes.
+                    fseek(file, 0, SEEK_SET);
+                    int byte_read = fread(fileBuffer, 1, file_size, file);
+                    
+                    if(byte_read <= 0)
+                    {
+                      printf("unable to copy file into buffer\n");
+                      bzero(responseBuffer, sizeof(responseBuffer));
+                      getFiveHundreadResponse(responseBuffer, requestUrl);
+                      printf("\nResponse:\n%s\n\n", responseBuffer);
+                      send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+                      continue;
+                    }
+                    
+                    char byteStr[5];
+                    sprintf(byteStr, "%d", byte_read);
+                    strcat(responseBuffer, byteStr);
+                    strcat(responseBuffer, "\r\n\r\n");
+                    strcat(responseBuffer, fileBuffer);
+                    strcat(responseBuffer, "\r\n");
+                    printf("\nResponse:\n%s\n\n", responseBuffer);
+                    send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+                  }
+                } else {  // This is when we need to send a image i.e. binary data.
+                  //Reference: https://stackoverflow.com/questions/28631767/sending-images-over-http-to-browser-in-c
+                  printf("Inside Send Image\n");
+                  struct stat filestat;
+                  FILE *fp;
+                  int fd;
+                  char header_buff [1048576];
+                  char file_buff [1048576];
+                  char filesize[10];
+
+                  strcpy(filename, rootAddress);
+                  strcat(filename, requestUrl);
+                  printf("FILENAME:::%s\n", filename);
+                  
+
+                  if ( ((fd = open (filename, O_RDONLY)) < -1) || (fstat(fd, &filestat) < 0) ) {
+                    printf ("Error in measuring the size of the file");
+                    bzero(responseBuffer, sizeof(responseBuffer));
+                    getFourOFourResponse(responseBuffer, requestUrl);
+                    printf("\nResponse:\n%s\n\n", responseBuffer);
+                    send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+                  }                  
+                  sprintf (filesize, "%zd", filestat.st_size);
+                  fp = fopen (filename, "r");
+                  
+                  if (fp == NULL) {
+                      printf("file does not exist\n");
+                      bzero(responseBuffer, sizeof(responseBuffer));
+                      getFourOFourResponse(responseBuffer, requestUrl);
+                      printf("\nResponse:\n%s\n\n", responseBuffer);
+                      send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+                  } else {
+                    strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+                    strcat(responseBuffer, "Content-Type: image/jpg \r\n");  //TODO: Make a function and remove hardcoded.
+                    strcat(responseBuffer,"Content-Length:");
+                    strcat(responseBuffer, filesize);
+                    strcat(responseBuffer, "\r\n");
+                    strcat(responseBuffer, "Connection: keep-alive\r\n\r\n");
+
+                    //Send header content first.
+                    write (connfd, responseBuffer, strlen(responseBuffer));
+                    fread (file_buff, sizeof(char), filestat.st_size + 1, fp);
+                    fclose(fp);
+                    //Send File data.
+                    write (connfd, file_buff, filestat.st_size);
+                  }
                 }
-                
-                char byteStr[5];
-                sprintf(byteStr, "%d", byte_read);
-                strcat(responseBuffer, byteStr);
-                strcat(responseBuffer, "\r\n\r\n");
-                strcat(responseBuffer, fileBuffer);
-                strcat(responseBuffer, "\r\n");
-              }
-            } else {
+            } else { //Not a valid File Type. Send 501
+
               bzero(responseBuffer, sizeof(responseBuffer));
               getFiveOOneResponse(responseBuffer, requestUrl);
+              printf("\nResponse:\n%s\n\n", responseBuffer);
+              send(connfd, responseBuffer, sizeof(responseBuffer), 0);
             }
 
-          } else {
+          } else { //Given url doesn't have a specified file name, so send index.html
             printf("Inside ELSE ISFILE\n");
             strcpy(filename, rootAddress);
             strcat(filename, "/index.html");
@@ -369,6 +460,8 @@ int main (int argc, char **argv)
                 printf("file does not exist\n");
                 bzero(responseBuffer, sizeof(responseBuffer));
                 getFourOFourResponse(responseBuffer, requestUrl);
+                printf("\nResponse:\n%s\n\n", responseBuffer);
+                send(connfd, responseBuffer, sizeof(responseBuffer), 0);
                 
             } else {
               strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
@@ -383,6 +476,8 @@ int main (int argc, char **argv)
                 printf("unable to copy file into buffer\n");
                 bzero(responseBuffer, sizeof(responseBuffer));
                 getFiveHundreadResponse(responseBuffer, requestUrl);
+                printf("\nResponse:\n%s\n\n", responseBuffer);
+                send(connfd, responseBuffer, sizeof(responseBuffer), 0);
                 continue;
               }
               
@@ -392,23 +487,18 @@ int main (int argc, char **argv)
               strcat(responseBuffer, "\r\n\r\n");
               strcat(responseBuffer, fileBuffer);
               strcat(responseBuffer, "\r\n");
+              printf("\nResponse:\n%s\n\n", responseBuffer);
+              send(connfd, responseBuffer, sizeof(responseBuffer), 0);
             }
           }
         } else {
           bzero(responseBuffer, sizeof(responseBuffer));
           getFiveOOneResponse(responseBuffer, requestUrl);
+          printf("\nResponse:\n%s\n\n", responseBuffer);
+          send(connfd, responseBuffer, sizeof(responseBuffer), 0);
         }
-        printf("\nResponse:\n%s\n\n", responseBuffer);
-        send(connfd, responseBuffer, sizeof(responseBuffer), 0);
         close(connfd);
         }
-
-      if (n < 0)
-      {
-        // printf("%s\n", "Read error");
-        // printf("%d\n", n);
-        // printf("%s\n", request);
-      }
       close(connfd);
       exit(0);
     }
