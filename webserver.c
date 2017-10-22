@@ -16,12 +16,12 @@
 FILE *getFilePointer(char filename[])
 {
     FILE *file = NULL;
-    char filePath[50];
-    memset(filePath, '\0', sizeof(filePath));
+    //char filePath[100];
+    //memset(filePath, '\0', sizeof(filePath));
     //strcat(filePath, "./www/");
-    strcat(filePath, filename)  ;
+    //strcat(filePath, filename)  ;
 
-    file = fopen(filePath, "r");
+    file = fopen(filename, "r");
     if (file) {
         printf("File %s opened \n\n", filename);
         return file;
@@ -75,9 +75,9 @@ void getRootDirectory(char *root) {
       i++;
       
       if (i == 4) {
-        char *tok = strtok(data, " ");
+        char *tok = strtok(data, "\"");
         if (tok != NULL) {
-          char *temp = strtok(NULL, "\n");
+          char *temp = strtok(NULL, "\"");
           strcpy(root, temp);
           root[strlen(temp)] = '\0';
           break;
@@ -316,15 +316,11 @@ int main (int argc, char **argv)
             int validFileType = isValidFileType(requestUrl, fileType);
             printf("ISVALIDFILETYPE::::%d\n", validFileType);
             if (validFileType == 1) {
-              strcpy(filename, ".");
+              printf("rootAddress::::%sss\n", rootAddress);
+              strcpy(filename, rootAddress);
               strcat(filename, requestUrl);
               printf("FILENAME:::%s\n", filename);
               file = getFilePointer(filename);
-
-              bzero(responseBuffer, sizeof(responseBuffer));
-              strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
-              strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
-              strcat(responseBuffer,"Content-Length:");
 
               if(file == NULL)
               {
@@ -332,7 +328,10 @@ int main (int argc, char **argv)
                  bzero(responseBuffer, sizeof(responseBuffer));
                  getFourOFourResponse(responseBuffer, requestUrl);
               } else {
-
+                bzero(responseBuffer, sizeof(responseBuffer));
+                strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+                strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
+                strcat(responseBuffer,"Content-Length:");
                 size_t file_size = getFileSize(file);     //Tells the file size in bytes.
                 fseek(file, 0, SEEK_SET);
                 int byte_read = fread(fileBuffer, 1, file_size, file);
@@ -358,14 +357,12 @@ int main (int argc, char **argv)
             }
 
           } else {
-            //printf("Inside ELSE ISFILE\n");
-            strcpy(filename, "./www/index.html");
+            printf("Inside ELSE ISFILE\n");
+            strcpy(filename, rootAddress);
+            strcat(filename, "/index.html");
+            printf("FILENAME:::%s\n", filename);
             file = getFilePointer(filename);
             bzero(responseBuffer, sizeof(responseBuffer));
-
-            strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
-            strcat(responseBuffer, "Content-Type: text/html \r\n");  //TODO
-            strcat(responseBuffer,"Content-Length:");
 
             if(file == NULL)
             {
@@ -374,7 +371,9 @@ int main (int argc, char **argv)
                 getFourOFourResponse(responseBuffer, requestUrl);
                 
             } else {
-
+              strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+              strcat(responseBuffer, "Content-Type: text/html \r\n");  //TODO
+              strcat(responseBuffer,"Content-Length:");
               size_t file_size = getFileSize(file);     //Tells the file size in bytes.
               fseek(file, 0, SEEK_SET);
               int byte_read = fread(fileBuffer, 1, file_size, file);
