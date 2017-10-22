@@ -18,7 +18,7 @@ FILE *getFilePointer(char filename[])
     FILE *file = NULL;
     char filePath[50];
     memset(filePath, '\0', sizeof(filePath));
-    strcat(filePath, "./www/");
+    //strcat(filePath, "./www/");
     strcat(filePath, filename)  ;
 
     file = fopen(filePath, "r");
@@ -127,10 +127,11 @@ void getHandledContentType(char *address) {
 
         if (tok != NULL) {
           char *temp = strtok(NULL, "\n");
+          //printf("i:%d    ext:%s   type:%s\n", i, tok, temp);
           if (i == 8) {
             strcpy(address, tok);
           } else {
-            strcat(address, temp);
+            strcat(address, tok);
           }
           strcat(address, ":");
           strcat(address, temp);
@@ -144,13 +145,61 @@ void getHandledContentType(char *address) {
   fclose(file); 
 }
 
+void getFiveOOneResponse(char *responseBuffer, char *requestUrl) {
+  bzero(responseBuffer, sizeof(responseBuffer));
+  strcpy(responseBuffer, "HTTP/1.1 501 Not Implemented\r\n");
+  strcat(responseBuffer, "Content-Type: text/html \r\n");
+  strcat(responseBuffer,"Content-Length:100");
+  strcat(responseBuffer, "\r\n\r\n");
+  strcat(responseBuffer,"<html><body>501 Not Implemented  <br/><b>Url: ");
+  strcat(responseBuffer, requestUrl);
+  strcat(responseBuffer, "</b></body></html>");
+}
+
+void getFourOFourResponse(char *responseBuffer, char *requestUrl) {
+  bzero(responseBuffer, sizeof(responseBuffer));
+  strcpy(responseBuffer, "HTTP/1.1 404 Not Found\r\n");
+  strcat(responseBuffer, "Content-Type: text/html \r\n");
+  strcat(responseBuffer,"Content-Length:100");
+  strcat(responseBuffer, "\r\n\r\n");
+  strcat(responseBuffer,"<html><body>404 Not Found Reason URL doesn not exist<br/><b>Url: ");
+  strcat(responseBuffer, requestUrl);
+  strcat(responseBuffer, "</b></body></html>");
+}
+
+void getFiveHundreadResponse(char *responseBuffer, char *requestUrl) {
+  bzero(responseBuffer, sizeof(responseBuffer));
+  strcpy(responseBuffer, "HTTP/1.1 500 Internal Server Error\r\n");
+  strcat(responseBuffer, "Content-Type: text/html \r\n");
+  strcat(responseBuffer,"Content-Length:100");
+  strcat(responseBuffer, "\r\n\r\n");
+  strcat(responseBuffer,"<html><body>500 Internal Server Error: cannot allocate memory<br/><b>Url: ");
+  strcat(responseBuffer, requestUrl);
+  strcat(responseBuffer, "</b></body></html>");
+}
+
 int isGetFile(char *url) {
   char *tok = strrchr(url, '.');
-  printf("tok:%s\n", tok);
   if (tok == NULL) {
     return 0;
   }
   return 1;
+}
+
+int isValidFileType(char *requestUrl, char *types) {
+  printf("types: %s\n", types);
+  printf("requestUrl: %s\n", requestUrl);
+  char *fileType = strrchr(requestUrl, '.');
+  //printf("fileType:\n", fileType);
+  char *typePresent = strstr(types, fileType);
+  
+  if (typePresent != NULL) {
+    printf("RETURN 1 fileType:%s    typePresent:\n", fileType, typePresent);
+    return 1;
+  } else {
+    printf("RETURN 0 fileType:%s    typePresent:\n", fileType, typePresent);
+    return 0;
+  }
 }
 
 
@@ -212,19 +261,20 @@ int main (int argc, char **argv)
       close(listenfd);
 
       while ((n = recv(connfd, request, MAXLINE,0)) > 0)  {
-        printf("%s\n\n","String received from and resent to the client: ");
+        printf("*****************************************************************\n");
+        printf("Request received from client\n\n");
         puts(request);
         char *httpRequest;
         char requestMethod[10];
-        char requestUrl[20];
+        char requestUrl[30];
         char requestVersion[10];
 
         httpRequest = strtok(request, "\n");
-        printf("%s\n", httpRequest);
+        //printf("%s\n", httpRequest);
         int i = 0 ;
         int j = 0;
         int arg = 0;
-        char temp[10];
+        char temp[30];
 
         while (httpRequest[i] != '\0') {
           if (httpRequest[i] == ' ') {
@@ -232,6 +282,8 @@ int main (int argc, char **argv)
               bzero(requestMethod, sizeof(requestMethod));
               strcpy(requestMethod, temp);
             } else if (arg == 1) {
+              printf("temp:%s\n", temp);
+              bzero(requestUrl, sizeof(requestUrl));
               strcpy(requestUrl, temp);
             }
             bzero(temp, sizeof(temp));
@@ -251,51 +303,63 @@ int main (int argc, char **argv)
         int responseIndex = 0;
         char fileBuffer[1048576];
 
-        FILE *file;
-        char filename[50];
-        memset(filename, '\0', sizeof(filename));
+        if (strcmp(requestMethod, "GET") == 0) {
+          FILE *file;
+          char filename[50];
+          memset(filename, '\0', sizeof(filename));
 
-        int isFile = isGetFile(requestUrl);
-        printf("isFile:%d\n", isFile);
+          int isFile = isGetFile(requestUrl);
+          printf("requestUrl:%s\n", requestUrl);
+          printf("ISFILE::::%d\n", isFile);
           if (isFile == 1) {
-            //int validFileType = isValidFileType(requestUrl);
+           
+            int validFileType = isValidFileType(requestUrl, fileType);
+            printf("ISVALIDFILETYPE::::%d\n", validFileType);
+            if (validFileType == 1) {
+              strcpy(filename, ".");
+              strcat(filename, requestUrl);
+              printf("FILENAME:::%s\n", filename);
+              file = getFilePointer(filename);
 
-            strcpy(filename, "text.txt");
-            file = getFilePointer(filename);
-            bzero(responseBuffer, sizeof(responseBuffer));
+              bzero(responseBuffer, sizeof(responseBuffer));
+              strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+              strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
+              strcat(responseBuffer,"Content-Length:");
 
-            strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
-            strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
-            strcat(responseBuffer,"Content-Length:");
-
-            if(file == NULL)
-            {
-               printf("file does not exist\n");
-            } else {
-
-              size_t file_size = getFileSize(file);     //Tells the file size in bytes.
-              fseek(file, 0, SEEK_SET);
-              int byte_read = fread(fileBuffer, 1, file_size, file);
-              
-              if(byte_read <= 0)
+              if(file == NULL)
               {
-                printf("unable to copy file into buffer\n");
-                exit(0);
+                 printf("file does not exist\n");
+                 bzero(responseBuffer, sizeof(responseBuffer));
+                 getFourOFourResponse(responseBuffer, requestUrl);
+              } else {
+
+                size_t file_size = getFileSize(file);     //Tells the file size in bytes.
+                fseek(file, 0, SEEK_SET);
+                int byte_read = fread(fileBuffer, 1, file_size, file);
+                
+                if(byte_read <= 0)
+                {
+                  printf("unable to copy file into buffer\n");
+                  bzero(responseBuffer, sizeof(responseBuffer));
+                  getFiveHundreadResponse(responseBuffer, requestUrl);
+                  continue;
+                }
+                
+                char byteStr[5];
+                sprintf(byteStr, "%d", byte_read);
+                strcat(responseBuffer, byteStr);
+                strcat(responseBuffer, "\r\n\r\n");
+                strcat(responseBuffer, fileBuffer);
+                strcat(responseBuffer, "\r\n");
               }
-              
-              char byteStr[5];
-              sprintf(byteStr, "%d", byte_read);
-              strcat(responseBuffer, byteStr);
-              strcat(responseBuffer, "\r\n\r\n");
-              strcat(responseBuffer, fileBuffer);
-              strcat(responseBuffer, "\r\n");
-              printf("\nResponse:\n%s\n\n", responseBuffer);
-              //write(connfd, responseBuffer, sizeof(responseBuffer) -1);
-              send(connfd, responseBuffer, sizeof(responseBuffer), 0);
-              close(connfd);
+            } else {
+              bzero(responseBuffer, sizeof(responseBuffer));
+              getFiveOOneResponse(responseBuffer, requestUrl);
             }
+
           } else {
-            strcpy(filename, "index.html");
+            //printf("Inside ELSE ISFILE\n");
+            strcpy(filename, "./www/index.html");
             file = getFilePointer(filename);
             bzero(responseBuffer, sizeof(responseBuffer));
 
@@ -305,7 +369,10 @@ int main (int argc, char **argv)
 
             if(file == NULL)
             {
-               printf("file does not exist\n");
+                printf("file does not exist\n");
+                bzero(responseBuffer, sizeof(responseBuffer));
+                getFourOFourResponse(responseBuffer, requestUrl);
+                
             } else {
 
               size_t file_size = getFileSize(file);     //Tells the file size in bytes.
@@ -315,7 +382,9 @@ int main (int argc, char **argv)
               if(byte_read <= 0)
               {
                 printf("unable to copy file into buffer\n");
-                exit(0);
+                bzero(responseBuffer, sizeof(responseBuffer));
+                getFiveHundreadResponse(responseBuffer, requestUrl);
+                continue;
               }
               
               char byteStr[5];
@@ -324,20 +393,22 @@ int main (int argc, char **argv)
               strcat(responseBuffer, "\r\n\r\n");
               strcat(responseBuffer, fileBuffer);
               strcat(responseBuffer, "\r\n");
-              printf("\nResponse:\n%s\n\n", responseBuffer);
-              send(connfd, responseBuffer, sizeof(responseBuffer), 0);
-              close(connfd);
             }
           }
-        
-      }
+        } else {
+          bzero(responseBuffer, sizeof(responseBuffer));
+          getFiveOOneResponse(responseBuffer, requestUrl);
+        }
+        printf("\nResponse:\n%s\n\n", responseBuffer);
+        send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+        close(connfd);
+        }
 
       if (n < 0)
       {
-        printf("%s\n", "Read error");
-        printf("%d\n", n);
-        printf("%s\n", request);
-
+        // printf("%s\n", "Read error");
+        // printf("%d\n", n);
+        // printf("%s\n", request);
       }
       close(connfd);
       exit(0);
