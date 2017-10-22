@@ -45,7 +45,6 @@ int getPortNumber() {
   if (file) {
     while(fgets(data, sizeof(data), file)) {
       i++;
-      
       if (i == 2) {
         int j = 0;
         while (data[j] != ' ') {
@@ -128,6 +127,7 @@ void getHandledContentType(char *address) {
         char *tok = strtok(data, " ");
         if (tok != NULL) {
           char *temp = strtok(data, " ");
+          //printf("tok:%s     temp:%s\n", tok, temp);
           if (i == 8) {
             strcpy(address, temp);
           } else {
@@ -189,7 +189,7 @@ int main (int argc, char **argv)
 
   printf("Server running...waiting for connections at port:%d\n", port);
 
-  //while (true) {
+  while (1) {
 
     clientLength = sizeof(clientSocket);
     //accept a connection
@@ -254,18 +254,17 @@ int main (int argc, char **argv)
         strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
         strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
         strcat(responseBuffer,"Content-Length:");
-       
-        printf("%s\n", responseBuffer);
+
         if(file == NULL)
         {
            printf("file does not exist\n");
         } else {
 
           size_t file_size = getFileSize(file);     //Tells the file size in bytes.
-          printf("file_size: %lu\n", file_size);
+          //printf("file_size: %lu\n", file_size);
           fseek(file, 0, SEEK_SET);
           int byte_read = fread(fileBuffer, 1, file_size, file);
-          printf("fileBuffer:\n%s\n", fileBuffer);
+          //printf("fileBuffer:\n%s\n", fileBuffer);
           
           if(byte_read <= 0)
           {
@@ -282,8 +281,9 @@ int main (int argc, char **argv)
           printf("\nResponse:\n%s\n\n", responseBuffer);
           //write(connfd, responseBuffer, sizeof(responseBuffer) -1);
           send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+          close(connfd);
         }
-        close(connfd);
+        
       }
 
       if (n < 0)
@@ -291,10 +291,12 @@ int main (int argc, char **argv)
         printf("%s\n", "Read error");
         printf("%d\n", n);
         printf("%s\n", request);
+
       }
-      //close(connfd);
+      close(connfd);
+      exit(0);
     }
     //close socket of the server
     close(connfd);
- // }
+  }
 }
