@@ -9,9 +9,8 @@
 
 
 #define MAXLINE 4096 /*max text line length*/
-#define SERV_PORT 8884/*port*/
+//#define SERV_PORT 8884/*port*/
 #define LISTENQ 8 /*maximum number of client connections*/
-
 
 
 FILE *getFilePointer(char filename[])
@@ -37,6 +36,113 @@ size_t getFileSize(FILE *file) {
   return file_size;
 }
 
+int getPortNumber() {
+  FILE *file;
+  file = fopen("ws.conf", "r");
+  char data[1048576];
+  int i = 0;
+  char port[4];
+  if (file) {
+    while(fgets(data, sizeof(data), file)) {
+      i++;
+      
+      if (i == 2) {
+        int j = 0;
+        while (data[j] != ' ') {
+          j++;
+        }
+        j++;
+        int index = 0;
+        while (data[j] != '\n') {
+          port[index++] = data[j++];
+        }
+        break;
+      }
+    }
+  }
+  
+  fclose(file); 
+  return atoi(port);
+}
+
+void getRootDirectory(char *root) {
+  FILE *file;
+  file = fopen("ws.conf", "r");
+  char data[1048576];
+  int i = 0;
+  
+  if (file) {
+    while(fgets(data, sizeof(data), file)) {
+      i++;
+      
+      if (i == 4) {
+        char *tok = strtok(data, " ");
+        if (tok != NULL) {
+          char *temp = strtok(NULL, " ");
+          strcpy(root, temp);
+          root[strlen(temp)-1] = '\0';
+        }
+        break;
+      }
+    }
+  }
+  
+  fclose(file); 
+}
+
+void getDefaultFileName(char *address) {
+  FILE *file;
+  file = fopen("ws.conf", "r");
+  char data[1048576];
+  int i = 0;
+
+  if (file) {
+    while(fgets(data, sizeof(data), file)) {
+      i++;
+      
+      if (i == 6) {
+        char *tok = strtok(data, " ");
+        if (tok != NULL) {
+          char *temp = strtok(NULL, "\n");
+          strcpy(address, temp);
+          address[strlen(temp)] = '\0';
+        }
+        break;
+      }
+    }
+  }
+  fclose(file); 
+}
+
+void getHandledContentType(char *address) {
+  FILE *file;
+  file = fopen("ws.conf", "r");
+  char data[1048576];
+  int i = 0;
+
+  if (file) {
+    while(fgets(data, sizeof(data), file)) {
+      i++;
+      
+      if (i > 7) {
+        char *tok = strtok(data, " ");
+        if (tok != NULL) {
+          char *temp = strtok(data, " ");
+          if (i == 8) {
+            strcpy(address, temp);
+          } else {
+            strcat(address, temp);
+          }
+          strcat(address, ",");
+        }
+      }
+    }
+    address[strlen(address)] = '\0';
+  }
+  
+  fclose(file); 
+}
+
 
 int main (int argc, char **argv)
 {
@@ -46,6 +152,22 @@ int main (int argc, char **argv)
   socklen_t clientLength;
   char request[MAXLINE];
   struct sockaddr_in clientSocket, serverSocket;
+
+  int port = getPortNumber();
+  
+  char rootAddress[150];
+  getRootDirectory(&rootAddress);
+  
+  char defaultFileName[10];
+  getDefaultFileName(&defaultFileName);
+  
+  char fileType[100];
+  getHandledContentType(&fileType);
+
+  printf("Port:%d:\n", port);
+  printf("rootAddress:%s:\n", rootAddress);
+  printf("defaultFileName:%s:\n", defaultFileName);
+  printf("Type:%s:\n\n", fileType);
 
   //Create a socket for the soclet
   //If sockfd<0 there was an error in the creation of the socket
@@ -57,7 +179,7 @@ int main (int argc, char **argv)
   //preparation of the socket address
   serverSocket.sin_family = AF_INET;
   serverSocket.sin_addr.s_addr = htonl(INADDR_ANY);
-  serverSocket.sin_port = htons(SERV_PORT);
+  serverSocket.sin_port = htons(port);
 
   //bind the socket
   bind (listenfd, (struct sockaddr *) &serverSocket, sizeof(serverSocket));
@@ -65,7 +187,7 @@ int main (int argc, char **argv)
   //listen to the socket by creating a connection queue, then wait for clients
   listen (listenfd, LISTENQ);
 
-  printf("Server running...waiting for connections at port:%d\n", SERV_PORT);
+  printf("Server running...waiting for connections at port:%d\n", port);
 
   //while (true) {
 
@@ -144,14 +266,16 @@ int main (int argc, char **argv)
           fseek(file, 0, SEEK_SET);
           int byte_read = fread(fileBuffer, 1, file_size, file);
           printf("fileBuffer:\n%s\n", fileBuffer);
+          
           if(byte_read <= 0)
           {
             printf("unable to copy file into buffer\n");
             exit(0);
           }
+          
           char byteStr[5];
           sprintf(byteStr, "%d", byte_read);
-          strcat(responseBuffer,byteStr);
+          strcat(responseBuffer, byteStr);
           strcat(responseBuffer, "\r\n\r\n");
           strcat(responseBuffer, fileBuffer);
           strcat(responseBuffer, "\r\n");
