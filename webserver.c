@@ -144,6 +144,15 @@ void getHandledContentType(char *address) {
   fclose(file); 
 }
 
+int isGetFile(char *url) {
+  char *tok = strrchr(url, '.');
+  printf("tok:%s\n", tok);
+  if (tok == NULL) {
+    return 0;
+  }
+  return 1;
+}
+
 
 int main (int argc, char **argv)
 {
@@ -245,42 +254,81 @@ int main (int argc, char **argv)
         FILE *file;
         char filename[50];
         memset(filename, '\0', sizeof(filename));
-        strcpy(filename, "text.txt");
-        file = getFilePointer(filename);
-        bzero(responseBuffer, sizeof(responseBuffer));
 
-        strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
-        strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
-        strcat(responseBuffer,"Content-Length:");
+        int isFile = isGetFile(requestUrl);
+        printf("isFile:%d\n", isFile);
+          if (isFile == 1) {
+            //int validFileType = isValidFileType(requestUrl);
 
-        if(file == NULL)
-        {
-           printf("file does not exist\n");
-        } else {
+            strcpy(filename, "text.txt");
+            file = getFilePointer(filename);
+            bzero(responseBuffer, sizeof(responseBuffer));
 
-          size_t file_size = getFileSize(file);     //Tells the file size in bytes.
-          //printf("file_size: %lu\n", file_size);
-          fseek(file, 0, SEEK_SET);
-          int byte_read = fread(fileBuffer, 1, file_size, file);
-          //printf("fileBuffer:\n%s\n", fileBuffer);
-          
-          if(byte_read <= 0)
-          {
-            printf("unable to copy file into buffer\n");
-            exit(0);
+            strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+            strcat(responseBuffer, "Content-Type: text/plain \r\n");  //TODO
+            strcat(responseBuffer,"Content-Length:");
+
+            if(file == NULL)
+            {
+               printf("file does not exist\n");
+            } else {
+
+              size_t file_size = getFileSize(file);     //Tells the file size in bytes.
+              fseek(file, 0, SEEK_SET);
+              int byte_read = fread(fileBuffer, 1, file_size, file);
+              
+              if(byte_read <= 0)
+              {
+                printf("unable to copy file into buffer\n");
+                exit(0);
+              }
+              
+              char byteStr[5];
+              sprintf(byteStr, "%d", byte_read);
+              strcat(responseBuffer, byteStr);
+              strcat(responseBuffer, "\r\n\r\n");
+              strcat(responseBuffer, fileBuffer);
+              strcat(responseBuffer, "\r\n");
+              printf("\nResponse:\n%s\n\n", responseBuffer);
+              //write(connfd, responseBuffer, sizeof(responseBuffer) -1);
+              send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+              close(connfd);
+            }
+          } else {
+            strcpy(filename, "index.html");
+            file = getFilePointer(filename);
+            bzero(responseBuffer, sizeof(responseBuffer));
+
+            strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+            strcat(responseBuffer, "Content-Type: text/html \r\n");  //TODO
+            strcat(responseBuffer,"Content-Length:");
+
+            if(file == NULL)
+            {
+               printf("file does not exist\n");
+            } else {
+
+              size_t file_size = getFileSize(file);     //Tells the file size in bytes.
+              fseek(file, 0, SEEK_SET);
+              int byte_read = fread(fileBuffer, 1, file_size, file);
+              
+              if(byte_read <= 0)
+              {
+                printf("unable to copy file into buffer\n");
+                exit(0);
+              }
+              
+              char byteStr[5];
+              sprintf(byteStr, "%d", byte_read);
+              strcat(responseBuffer, byteStr);
+              strcat(responseBuffer, "\r\n\r\n");
+              strcat(responseBuffer, fileBuffer);
+              strcat(responseBuffer, "\r\n");
+              printf("\nResponse:\n%s\n\n", responseBuffer);
+              send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+              close(connfd);
+            }
           }
-          
-          char byteStr[5];
-          sprintf(byteStr, "%d", byte_read);
-          strcat(responseBuffer, byteStr);
-          strcat(responseBuffer, "\r\n\r\n");
-          strcat(responseBuffer, fileBuffer);
-          strcat(responseBuffer, "\r\n");
-          printf("\nResponse:\n%s\n\n", responseBuffer);
-          //write(connfd, responseBuffer, sizeof(responseBuffer) -1);
-          send(connfd, responseBuffer, sizeof(responseBuffer), 0);
-          close(connfd);
-        }
         
       }
 
