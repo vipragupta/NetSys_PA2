@@ -77,16 +77,15 @@ void getRootDirectory(char *root) {
       if (i == 4) {
         char *tok = strtok(data, " ");
         if (tok != NULL) {
-          char *temp = strtok(NULL, " ");
+          char *temp = strtok(NULL, "\n");
           strcpy(root, temp);
-          root[strlen(temp)-1] = '\0';
+          root[strlen(temp)] = '\0';
+          break;
         }
-        break;
       }
     }
   }
-  
-  fclose(file); 
+  fclose(file);
 }
 
 void getDefaultFileName(char *address) {
@@ -125,14 +124,16 @@ void getHandledContentType(char *address) {
       
       if (i > 7) {
         char *tok = strtok(data, " ");
+
         if (tok != NULL) {
-          char *temp = strtok(data, " ");
-          //printf("tok:%s     temp:%s\n", tok, temp);
+          char *temp = strtok(NULL, "\n");
           if (i == 8) {
-            strcpy(address, temp);
+            strcpy(address, tok);
           } else {
             strcat(address, temp);
           }
+          strcat(address, ":");
+          strcat(address, temp);
           strcat(address, ",");
         }
       }
@@ -151,18 +152,15 @@ int main (int argc, char **argv)
   pid_t childpid;
   socklen_t clientLength;
   char request[MAXLINE];
-  struct sockaddr_in clientSocket, serverSocket;
-
-  int port = getPortNumber();
-  
+  struct sockaddr_in clientSocket, serverSocket; 
   char rootAddress[150];
-  getRootDirectory(&rootAddress);
-  
   char defaultFileName[10];
-  getDefaultFileName(&defaultFileName);
-  
   char fileType[100];
-  getHandledContentType(&fileType);
+  
+  int port = getPortNumber();
+  getDefaultFileName(defaultFileName);  
+  getHandledContentType(fileType);
+  getRootDirectory(rootAddress);
 
   printf("Port:%d:\n", port);
   printf("rootAddress:%s:\n", rootAddress);
