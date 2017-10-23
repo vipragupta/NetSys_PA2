@@ -1,3 +1,6 @@
+//Network Systems Programming Assignment 2
+//Vipra Gupta
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -17,17 +20,13 @@
 FILE *getFilePointer(char filename[])
 {
     FILE *file = NULL;
-    //char filePath[100];
-    //memset(filePath, '\0', sizeof(filePath));
-    //strcat(filePath, "./www/");
-    //strcat(filePath, filename)  ;
 
     file = fopen(filename, "r");
     if (file) {
         printf("File %s opened \n\n", filename);
         return file;
     }
-    return NULL; // error
+    return NULL;
 }
 
 //Function to find the size of sile in bytes
@@ -327,13 +326,17 @@ int main (int argc, char **argv)
       //While a request is received.
       while ((n = recv(connfd, request, MAXLINE,0)) > 0)  {
         printf("*****************************************************************\n");
-        printf("Request received from client\n\n");
+        printf("Request received from client\n\n-----------------\n");
         puts(request);
+        printf("-----------------\n");
         char *httpRequest;
         char requestMethod[20];
         char requestUrl[70];
         char requestVersion[20];
         char urlByToken[70];
+
+        char request4[MAXLINE];
+        strncpy(request4, request, strlen(request)); 
 
         httpRequest = strtok(request, "\n");
         int i = 0 ;
@@ -374,23 +377,29 @@ int main (int argc, char **argv)
         char responseBuffer[1048576];
         int responseIndex = 0;
         char fileBuffer[1048576];
-        
+        char postData[1048576];
+
         //If the requestVersion is not HTTP/1.1 or HTTP/1.0 then send a 400 error.
         if ((strstr(requestVersion, "HTTP/1.1") == NULL) && (strstr(requestVersion, "HTTP/1.0") == NULL)) {
           char reason[400];
           strcpy(reason, "Invalid HTTP-Version ");
-          //strcat(reason, requestVersion);
-          //reason[strlen(reason)] = '\0';
-
-          //printf("reason: %s\n", reason);
           getFourHundreadResponse(responseBuffer, reason);
           send(connfd, responseBuffer, sizeof(responseBuffer), 0);
           continue;
         }
 
-        //printf("Hello %s  %d\n", requestMethod, strcmp(requestMethod, "GET"));
         //Code for when the request method is GET
-        if (strcmp(requestMethod, "GET") == 0) {
+        if ((strcmp(requestMethod, "GET") == 0) || (strcmp(requestMethod, "POST") == 0)) {
+
+          if (strcmp(requestMethod, "POST") == 0) {
+            char *tempPost = strtok(request4, "\n");
+            while (tempPost != NULL) {
+              strcpy(postData, tempPost);
+              tempPost = strtok(NULL, "\n");
+            }
+
+            printf("POST DATA:%s\n", postData);
+          }
 
           char url4[100];
           strncpy(url4, requestUrl, strlen(requestUrl)); 
@@ -402,7 +411,7 @@ int main (int argc, char **argv)
           int isFile = isGetFile(requestUrl);
           //printf("requestUrl:%s\n", requestUrl);
 
-          printf("\nISFILE::::%d\n", isFile);
+          printf("\nISFILE:  %d\n", isFile);
           //If the requested url us asking for a file.
           if (isFile == 1) {
             char contentType[100];
@@ -413,14 +422,14 @@ int main (int argc, char **argv)
             strncpy(contentType4, contentType, strlen(contentType)); 
             contentType4[strlen(contentType)] = '\0';
 
-            printf("CONTENT TYPE::::%s\n", contentType);
+            printf("CONTENT TYPE:  %s\n", contentType);
             
             //Check whats the content type. Only if it is valid content type, run the following code.
             if (contentType && contentType != NULL && strlen(contentType) > 0) {
               int isImageType = isImageTypeFile(requestUrl);
-              printf("ISIMAGETYPE::::%d\n", isImageType);
+              printf("ISIMAGETYPE:  %d\n", isImageType);
               
-                if (isImageType == 0) {
+                if (isImageType == 0) { //If the filed asked is html or Text.
 
                   //printf("rootAddress::::%sss\n", rootAddress);
                   strcpy(filename, rootAddress);
@@ -428,7 +437,6 @@ int main (int argc, char **argv)
 
                   printf("FILENAME:::%s\n", filename);
                   file = getFilePointer(filename);
-
                   if(file == NULL)
                   {
                      printf("file does not exist\n");
@@ -462,10 +470,21 @@ int main (int argc, char **argv)
                       continue;
                     }
                     
-                    char byteStr[5];
-                    sprintf(byteStr, "%d", byte_read);
+                    char byteStr[10];
+                    //When the request Method is post, add the post data length also to content length
+                    if (strcmp(requestMethod, "POST") == 0) {
+                      sprintf(byteStr, "%d", byte_read + strlen(postData) + strlen("\r\n"));
+                    } else {
+                      sprintf(byteStr, "%d", byte_read);
+                    }
                     strcat(responseBuffer, byteStr);
                     strcat(responseBuffer, "\r\n\r\n");
+
+                    //When the request Method is post, append the post data to the content
+                    if (strcmp(requestMethod, "POST") == 0) {
+                      strcat(responseBuffer + strlen(responseBuffer), postData);
+                      strcat(responseBuffer + strlen(responseBuffer), "\r\n");
+                    }
                     strcat(responseBuffer, fileBuffer);
                     strcat(responseBuffer, "\r\n");
                     printf("\nResponse:\n%s\n\n", responseBuffer);
@@ -536,7 +555,7 @@ int main (int argc, char **argv)
             }
 
           } else if (strcmp(requestUrl, "/") == 0){ //Given url doesn't have a specified file name, so send index.html
-            printf("Inside ELSE ISFILE\n");
+
             strcpy(filename, rootAddress);
             strcat(filename, "/index.html");
             printf("FILENAME:::%s\n", filename);
@@ -575,10 +594,22 @@ int main (int argc, char **argv)
                 continue;
               }
               
-              char byteStr[5];
-              sprintf(byteStr, "%d", byte_read);
+              char byteStr[10];
+              //When the request Method is post, append the post data to the content
+              if (strcmp(requestMethod, "POST") == 0) {
+                sprintf(byteStr, "%d", byte_read + strlen(postData) + strlen("\r\n"));
+              } else {
+                sprintf(byteStr, "%d", byte_read);
+              }
               strcat(responseBuffer, byteStr);
               strcat(responseBuffer, "\r\n\r\n");
+              
+              //When the request Method is post, append the post data to the content
+              if (strcmp(requestMethod, "POST") == 0) {
+                sprintf(responseBuffer + strlen(responseBuffer), "<pre><h1>");
+                strcat(responseBuffer + strlen(responseBuffer), postData);
+                strcat(responseBuffer + strlen(responseBuffer), "</h1></pre>");
+              }
               strcat(responseBuffer, fileBuffer);
               strcat(responseBuffer, "\r\n");
               printf("\nResponse:\n%s\n\n", responseBuffer);
