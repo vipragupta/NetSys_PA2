@@ -20,8 +20,11 @@ gcc webserver.c -o webserver.o
 ## Error Codes
 
 400: Request message is in wrong format like Http version is not supported, url is in wrong format.
+
 404: The requested url doesn't exist.
+
 501: Requested file type is not supported or Request method is not supported.
+
 500: All other Server side errors like error during file read etc.
 
 ## Sample request 
