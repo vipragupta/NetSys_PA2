@@ -493,17 +493,16 @@ int main (int argc, char **argv)
                 } else {  // This is when we need to send a image i.e. binary data.
                   //Reference: https://stackoverflow.com/questions/28631767/sending-images-over-http-to-browser-in-c
                   //printf("Inside Send Image\n");
-                  struct stat filestat;
-                  FILE *fp;
-                  int fd;
-                  char header_buff [1048576];
-                  char file_buff [1048576];
-                  char filesize[10];
+                  struct stat fileStats;
+                  FILE *filePointer;
+                  int filed;
+                  char bufferFile [1148576];
+                  char fileSize[10];
 
                   strcpy(filename, rootAddress);
                   strcat(filename, requestUrl);
 
-                  if ( ((fd = open (filename, O_RDONLY)) < -1) || (fstat(fd, &filestat) < 0) ) {
+                  if ( ((filed = open (filename, O_RDONLY)) < -1) || (fstat(filed, &fileStats) < 0) ) {
                     printf ("Error in Opening the file\n");
                     bzero(responseBuffer, sizeof(responseBuffer));
 
@@ -512,10 +511,10 @@ int main (int argc, char **argv)
                     send(connfd, responseBuffer, sizeof(responseBuffer), 0);
                     continue;
                   }                  
-                  sprintf (filesize, "%zd", filestat.st_size);
-                  fp = fopen (filename, "r");
+                  sprintf (fileSize, "%zd", fileStats.st_size);
+                  filePointer = fopen (filename, "r");
                   
-                  if (fp == NULL) {
+                  if (filePointer == NULL) {
                       printf("file does not exist\n");
                       bzero(responseBuffer, sizeof(responseBuffer));
                       getFourOFourResponse(responseBuffer, url4);
@@ -534,16 +533,16 @@ int main (int argc, char **argv)
                     strcat(responseBuffer, "\r\n");
                     //printf("2IMAGE CONTENT TYPE:%s\n", contentType4);
                     strcat(responseBuffer,"Content-Length:");
-                    strcat(responseBuffer, filesize);
+                    strcat(responseBuffer, fileSize);
                     strcat(responseBuffer, "\r\n");
                     strcat(responseBuffer, "Connection: keep-alive\r\n\r\n");
                     printf("\nResponse:\n%s\n\n", responseBuffer);
                     //Send header content first.
                     write (connfd, responseBuffer, strlen(responseBuffer));
-                    fread (file_buff, sizeof(char), filestat.st_size + 1, fp);
-                    fclose(fp);
+                    fread (bufferFile, sizeof(char), fileStats.st_size + 1, filePointer);
+                    fclose(filePointer);
                     //Send File data.
-                    write (connfd, file_buff, filestat.st_size);
+                    write (connfd, bufferFile, fileStats.st_size);
                   }
                 }
             } else { //Not a valid File Type. Send 501
