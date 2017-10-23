@@ -257,7 +257,7 @@ int isGetFile(char *url) {
 
 //Function to find if the requested file is of image, js, css, gif types
 int isImageTypeFile(char *requestUrl) {
-  printf("requestUrl: %s\n", requestUrl);
+  //printf("requestUrl: %s\n", requestUrl);
   char *fileType = strrchr(requestUrl, '.');
   if (fileType != NULL && ((strcmp(fileType, ".txt") == 0) || (strcmp(fileType, ".html") == 0) || (strcmp(fileType, ".htm") == 0))) {
     return 0;
@@ -374,10 +374,8 @@ int main (int argc, char **argv)
         char responseBuffer[1048576];
         int responseIndex = 0;
         char fileBuffer[1048576];
-
-        //printf("\nHey\n  %s\n   ", (strstr(temp, "HTTP/1.1")));
-        //printf("%s\n\n", (strstr(requestVersion, "HTTP/1.0")));
-        //printf("Hello %s  %d\n", requestMethod, strcmp(requestMethod, "GET"));
+        
+        //If the requestVersion is not HTTP/1.1 or HTTP/1.0 then send a 400 error.
         if ((strstr(requestVersion, "HTTP/1.1") == NULL) && (strstr(requestVersion, "HTTP/1.0") == NULL)) {
           char reason[400];
           strcpy(reason, "Invalid HTTP-Version ");
@@ -391,6 +389,7 @@ int main (int argc, char **argv)
         }
 
         //printf("Hello %s  %d\n", requestMethod, strcmp(requestMethod, "GET"));
+        //Code for when the request method is GET
         if (strcmp(requestMethod, "GET") == 0) {
 
           char url4[100];
@@ -404,6 +403,7 @@ int main (int argc, char **argv)
           //printf("requestUrl:%s\n", requestUrl);
 
           printf("\nISFILE::::%d\n", isFile);
+          //If the requested url us asking for a file.
           if (isFile == 1) {
             char contentType[100];
             getContentType(requestUrl, contentType);
@@ -415,13 +415,14 @@ int main (int argc, char **argv)
 
             printf("CONTENT TYPE::::%s\n", contentType);
             
+            //Check whats the content type. Only if it is valid content type, run the following code.
             if (contentType && contentType != NULL && strlen(contentType) > 0) {
               int isImageType = isImageTypeFile(requestUrl);
               printf("ISIMAGETYPE::::%d\n", isImageType);
               
                 if (isImageType == 0) {
 
-                  printf("rootAddress::::%sss\n", rootAddress);
+                  //printf("rootAddress::::%sss\n", rootAddress);
                   strcpy(filename, rootAddress);
                   strcat(filename, requestUrl);
 
@@ -504,7 +505,11 @@ int main (int argc, char **argv)
                       continue;
                   } else {
                     //printf("IMAGE CONTENT TYPE:%s\n", contentType4);
-                    strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+                    if ((strstr(temp, "HTTP/1.1")) != NULL) {
+                      strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+                    } else {
+                      strcpy(responseBuffer, "HTTP/1.0 200 OK\r\n");
+                    }
                     strcat(responseBuffer, "Content-Type: ");
                     strcat(responseBuffer, contentType4);
                     strcat(responseBuffer, "\r\n");
@@ -530,7 +535,7 @@ int main (int argc, char **argv)
               send(connfd, responseBuffer, sizeof(responseBuffer), 0);
             }
 
-          } else { //Given url doesn't have a specified file name, so send index.html
+          } else if (strcmp(requestUrl, "/") == 0){ //Given url doesn't have a specified file name, so send index.html
             printf("Inside ELSE ISFILE\n");
             strcpy(filename, rootAddress);
             strcat(filename, "/index.html");
@@ -538,6 +543,7 @@ int main (int argc, char **argv)
             file = getFilePointer(filename);
             bzero(responseBuffer, sizeof(responseBuffer));
 
+            //File doesn't exist
             if(file == NULL)
             {
                 printf("file does not exist\n");
@@ -546,14 +552,19 @@ int main (int argc, char **argv)
                 printf("\nResponse:\n%s\n\n", responseBuffer);
                 send(connfd, responseBuffer, sizeof(responseBuffer), 0);
                 
-            } else {
-              strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+            } else { //File exist
+              if ((strstr(temp, "HTTP/1.1")) != NULL) {
+                strcpy(responseBuffer, "HTTP/1.1 200 OK\r\n");
+              } else {
+                strcpy(responseBuffer, "HTTP/1.0 200 OK\r\n");
+              }
               strcat(responseBuffer, "Content-Type: text/html \r\n");
               strcat(responseBuffer,"Content-Length:");
               size_t file_size = getFileSize(file);     //Tells the file size in bytes.
               fseek(file, 0, SEEK_SET);
               int byte_read = fread(fileBuffer, 1, file_size, file);
               
+              //Error occured while reading the file content
               if(byte_read <= 0)
               {
                 printf("unable to copy file into buffer\n");
@@ -573,6 +584,13 @@ int main (int argc, char **argv)
               printf("\nResponse:\n%s\n\n", responseBuffer);
               send(connfd, responseBuffer, sizeof(responseBuffer), 0);
             }
+          } else {
+            printf("File Path has no index.html\n");
+            bzero(responseBuffer, sizeof(responseBuffer));
+            getFourOFourResponse(responseBuffer, url4);
+            printf("\nResponse:\n%s\n\n", responseBuffer);
+            send(connfd, responseBuffer, sizeof(responseBuffer), 0);
+            continue;
           }
         } else {
           bzero(responseBuffer, sizeof(responseBuffer));
